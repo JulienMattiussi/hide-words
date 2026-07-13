@@ -8,24 +8,31 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'hidden-word' })).toBeInTheDocument()
   })
 
-  it('reveals the hidden text by default', () => {
+  it('reveals both codes by default', () => {
     render(<App />)
-    expect(screen.getByRole('img', { name: /révélant le mot CODE CACHÉ/i })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /révélant les deux codes/i })).toBeInTheDocument()
   })
 
-  it('hides the text when the reveal toggle is turned off', async () => {
+  it('switches to revealing only the first code', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('checkbox', { name: /révélé/i }))
-    expect(screen.getByRole('img', { name: /mot caché/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: 'Code 1' }))
+    expect(screen.getByRole('img', { name: /révélant le code 1 : JOUR/i })).toBeInTheDocument()
   })
 
-  it('updates the grid from the multiline text field', async () => {
+  it('hides the codes when asked', async () => {
     const user = userEvent.setup()
     render(<App />)
-    const textInput = screen.getByLabelText(/Texte à cacher/)
-    await user.clear(textInput)
-    await user.type(textInput, 'Été{enter}42')
-    expect(screen.getByRole('img', { name: /révélant le mot Été 42/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: 'Caché' }))
+    expect(screen.getByRole('img', { name: /codes cachés/i })).toBeInTheDocument()
+  })
+
+  it('warns when the key combination does not share exactly two letters', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const key2 = screen.getAllByLabelText(/Lettres du tracé/)[1]!
+    await user.clear(key2)
+    await user.type(key2, 'JOUR')
+    expect(screen.getByRole('alert')).toBeInTheDocument()
   })
 })

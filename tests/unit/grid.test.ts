@@ -9,51 +9,73 @@ function countOn(pattern: boolean[][]): number {
 const isUpper = (char: string) => char >= 'A' && char <= 'Z'
 const isLower = (char: string) => char >= 'a' && char <= 'z'
 
-describe('buildGrid', () => {
+describe('buildGrid, single code', () => {
+  it('renders only the first code when there is no second', () => {
+    const grid = buildGrid({ orientation: 'landscape', first: { text: 'HELLO' } })
+    expect(grid.secondActive).toBe(false)
+    expect(grid.cells.some((cell) => cell.secondary)).toBe(false)
+    const primaryCount = grid.cells.filter((cell) => cell.primary).length
+    expect(primaryCount).toBe(countOn(textToPattern('HELLO')))
+  })
+
   it('produces a landscape grid wider than tall', () => {
-    const grid = buildGrid({ orientation: 'landscape', text: 'HI\nYO' })
+    const grid = buildGrid({ orientation: 'landscape', first: { text: 'HELLO' } })
     expect(grid.cols).toBeGreaterThanOrEqual(grid.rows)
-    expect(grid.cells).toHaveLength(grid.cols * grid.rows)
+  })
+})
+
+describe('buildGrid, two codes', () => {
+  const options = {
+    orientation: 'landscape' as const,
+    first: { text: 'JOUR', key: 'JOURNE' },
+    second: { text: 'NUIT', key: 'NEBCT' },
+  }
+
+  it('activates the second code for a valid combination', () => {
+    const grid = buildGrid(options)
+    expect(grid.secondActive).toBe(true)
+    expect(new Set(grid.keys.shared)).toEqual(new Set(['N', 'E']))
+    expect(grid.cells.some((cell) => cell.primary)).toBe(true)
+    expect(grid.cells.some((cell) => cell.secondary)).toBe(true)
   })
 
-  it('produces a portrait grid taller than wide', () => {
-    const grid = buildGrid({ orientation: 'portrait', text: 'HI\nYO' })
-    expect(grid.rows).toBeGreaterThanOrEqual(grid.cols)
-  })
-
-  it('keeps the whole trace inside the grid with a noise margin', () => {
-    const grid = buildGrid({ orientation: 'landscape', text: 'HELLO\nWORLD' })
-    const onCount = grid.cells.filter((cell) => cell.on).length
-    expect(onCount).toBe(countOn(textToPattern('HELLO\nWORLD')))
+  it('keeps the two reveals independent through letter placement', () => {
+    const grid = buildGrid(options)
+    const key1 = new Set([...'JOURNE'])
+    const key2 = new Set([...'NEBCT'])
+    for (const cell of grid.cells) {
+      if (cell.primary && cell.secondary) {
+        expect(['N', 'E']).toContain(cell.char)
+      } else if (cell.primary) {
+        expect(key1.has(cell.char)).toBe(true)
+        expect(key2.has(cell.char)).toBe(false)
+      } else if (cell.secondary) {
+        expect(key2.has(cell.char)).toBe(true)
+        expect(key1.has(cell.char)).toBe(false)
+      } else {
+        expect(key1.has(cell.char)).toBe(false)
+        expect(key2.has(cell.char)).toBe(false)
+      }
+    }
   })
 
   it('is deterministic for a given seed', () => {
-    const options = { orientation: 'landscape' as const, text: 'HI\nYO', seed: 7 }
-    expect(buildGrid(options)).toEqual(buildGrid(options))
+    expect(buildGrid({ ...options, seed: 5 })).toEqual(buildGrid({ ...options, seed: 5 }))
   })
 
-  it('fills the trace with the given letters, cycling them', () => {
-    const grid = buildGrid({ orientation: 'landscape', text: 'HI', fillLetters: 'XY' })
-    const traceChars = grid.cells.filter((cell) => cell.on).map((cell) => cell.char)
-    expect(new Set(traceChars)).toEqual(new Set(['X', 'Y']))
+  it('honours a manual offset', () => {
+    const grid = buildGrid({ ...options, offset: { dx: 3, dy: 2 } })
+    expect(grid.offset).toEqual({ dx: 3, dy: 2 })
   })
 
-  it('falls back to the text letters when fill is empty', () => {
-    const grid = buildGrid({ orientation: 'landscape', text: 'HI', fillLetters: '' })
-    const traceChars = grid.cells.filter((cell) => cell.on).map((cell) => cell.char)
-    expect(new Set(traceChars)).toEqual(new Set(['H', 'I']))
-  })
-
-  it('has no trace cells when the text is blank', () => {
-    const grid = buildGrid({ orientation: 'landscape', text: '' })
-    expect(grid.cells.some((cell) => cell.on)).toBe(false)
-  })
-
-  it('never puts a trace letter into the noise', () => {
-    const grid = buildGrid({ orientation: 'landscape', text: 'HELLO\nWORLD', fillLetters: 'CODÉ' })
-    const traceLetters = new Set([...'CODÉ'])
-    const noiseChars = grid.cells.filter((cell) => !cell.on).map((cell) => cell.char)
-    expect(noiseChars.some((char) => traceLetters.has(char))).toBe(false)
+  it('ignores the second code when the combination is invalid', () => {
+    const grid = buildGrid({
+      orientation: 'landscape',
+      first: { text: 'JOUR', key: 'ABC' },
+      second: { text: 'NUIT', key: 'CDE' },
+    })
+    expect(grid.secondActive).toBe(false)
+    expect(grid.cells.some((cell) => cell.secondary)).toBe(false)
   })
 })
 
