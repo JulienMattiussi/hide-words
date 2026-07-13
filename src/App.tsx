@@ -1,16 +1,8 @@
 import { useMemo, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { buildGrid } from '@/lib/grid'
-import type { Grid } from '@/lib/grid'
-import { normalizeWord } from '@/lib/text'
-
-const MIN_SIZE = 5
-const MAX_SIZE = 120
-
-function clampSize(value: number): number {
-  if (Number.isNaN(value)) return MIN_SIZE
-  return Math.min(MAX_SIZE, Math.max(MIN_SIZE, Math.floor(value)))
-}
+import type { Grid, Orientation } from '@/lib/grid'
+import { normalizeLetters, normalizeTextLines } from '@/lib/text'
 
 function GridView({ grid, reveal, word }: { grid: Grid; reveal: boolean; word: string }) {
   const label =
@@ -43,19 +35,19 @@ function GridView({ grid, reveal, word }: { grid: Grid; reveal: boolean; word: s
 }
 
 export default function App() {
-  const [cols, setCols] = useState(33)
-  const [rows, setRows] = useState(11)
-  const [word, setWord] = useState('CODE')
+  const [orientation, setOrientation] = useState<Orientation>('landscape')
+  const [text, setText] = useState('CODE\nCACHÉ')
   const [fillLetters, setFillLetters] = useState('')
   const [reveal, setReveal] = useState(true)
   const [printReveal, setPrintReveal] = useState<boolean | null>(null)
 
   const grid = useMemo(
-    () => buildGrid({ cols, rows, word, fillLetters }),
-    [cols, rows, word, fillLetters],
+    () => buildGrid({ orientation, text, fillLetters }),
+    [orientation, text, fillLetters],
   )
 
-  const normalizedWord = normalizeWord(word)
+  const labelWord = normalizeTextLines(text).join(' ').trim()
+  const fillHint = normalizeLetters(text)
   const shown = printReveal ?? reveal
 
   function printGrid(revealForPrint: boolean) {
@@ -75,55 +67,57 @@ export default function App() {
             <p className="text-sm text-slate-500">Cache un mot dans une grille de lettres.</p>
           </header>
 
-          <fieldset className="space-y-3">
-            <legend className="text-sm font-semibold text-slate-700">Dimensions</legend>
-            <div className="flex gap-3">
-              <label className="flex flex-1 flex-col gap-1 text-sm">
-                Largeur
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-semibold text-slate-700">Orientation</legend>
+            <div className="flex gap-4 text-sm">
+              <label className="flex items-center gap-2">
                 <input
-                  type="number"
-                  min={MIN_SIZE}
-                  max={MAX_SIZE}
-                  value={cols}
-                  onChange={(event) => setCols(clampSize(event.target.valueAsNumber))}
-                  className="rounded border border-slate-300 bg-white px-2 py-1"
+                  type="radio"
+                  name="orientation"
+                  value="landscape"
+                  checked={orientation === 'landscape'}
+                  onChange={() => setOrientation('landscape')}
                 />
+                Paysage
               </label>
-              <label className="flex flex-1 flex-col gap-1 text-sm">
-                Hauteur
+              <label className="flex items-center gap-2">
                 <input
-                  type="number"
-                  min={MIN_SIZE}
-                  max={MAX_SIZE}
-                  value={rows}
-                  onChange={(event) => setRows(clampSize(event.target.valueAsNumber))}
-                  className="rounded border border-slate-300 bg-white px-2 py-1"
+                  type="radio"
+                  name="orientation"
+                  value="portrait"
+                  checked={orientation === 'portrait'}
+                  onChange={() => setOrientation('portrait')}
                 />
+                Portrait
               </label>
             </div>
+            <span className="text-xs text-slate-500">
+              La grille se dimensionne autour du texte.
+            </span>
           </fieldset>
 
           <div className="space-y-3">
             <label className="flex flex-col gap-1 text-sm">
-              Mot à cacher
-              <input
-                type="text"
-                value={word}
-                onChange={(event) => setWord(event.target.value)}
-                className="rounded border border-slate-300 bg-white px-2 py-1"
+              Texte à cacher
+              <textarea
+                value={text}
+                rows={4}
+                onChange={(event) => setText(event.target.value)}
+                className="resize-y rounded border border-slate-300 bg-white px-2 py-1 font-mono"
               />
+              <span className="text-xs text-slate-500">Une ligne de texte = une rangée sur la grille.</span>
             </label>
             <label className="flex flex-col gap-1 text-sm">
-              Lettres du mot à cacher
+              Lettres du tracé
               <input
                 type="text"
                 value={fillLetters}
-                placeholder={normalizedWord || 'lettres du tracé'}
+                placeholder={fillHint || 'lettres du tracé'}
                 onChange={(event) => setFillLetters(event.target.value)}
                 className="rounded border border-slate-300 bg-white px-2 py-1"
               />
               <span className="text-xs text-slate-500">
-                Remplissent le tracé, répétées. Vide = les lettres du mot.
+                Remplissent le tracé, répétées. Vide = les lettres du texte.
               </span>
             </label>
           </div>
@@ -157,7 +151,7 @@ export default function App() {
         </aside>
 
         <main className="flex-1">
-          <GridView grid={grid} reveal={shown} word={normalizedWord} />
+          <GridView grid={grid} reveal={shown} word={labelWord} />
         </main>
       </div>
     </div>

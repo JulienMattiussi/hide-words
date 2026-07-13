@@ -8,24 +8,24 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'hidden-word' })).toBeInTheDocument()
   })
 
-  it('reveals the hidden word by default', () => {
+  it('reveals the hidden text by default', () => {
     render(<App />)
-    expect(screen.getByRole('img', { name: /révélant le mot CODE/i })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /révélant le mot CODE CACHÉ/i })).toBeInTheDocument()
   })
 
-  it('hides the word when the reveal toggle is turned off', async () => {
+  it('hides the text when the reveal toggle is turned off', async () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(screen.getByRole('checkbox', { name: /révélé/i }))
     expect(screen.getByRole('img', { name: /mot caché/i })).toBeInTheDocument()
   })
 
-  it('updates the grid label when the word changes', async () => {
+  it('updates the grid from the multiline text field', async () => {
     const user = userEvent.setup()
     render(<App />)
-    const wordInput = screen.getByLabelText('Mot à cacher')
-    await user.clear(wordInput)
-    await user.type(wordInput, 'Été42')
-    expect(screen.getByRole('img', { name: /révélant le mot Été42/i })).toBeInTheDocument()
+    const textInput = screen.getByLabelText(/Texte à cacher/)
+    await user.clear(textInput)
+    await user.type(textInput, 'Été{enter}42')
+    expect(screen.getByRole('img', { name: /révélant le mot Été 42/i })).toBeInTheDocument()
   })
 })

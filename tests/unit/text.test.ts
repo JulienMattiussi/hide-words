@@ -1,20 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeWord } from '@/lib/text'
+import { normalizeLetters, normalizeTextLines } from '@/lib/text'
 
-describe('normalizeWord', () => {
-  it('keeps letters, digits, case and French accents', () => {
-    expect(normalizeWord('Élan 42')).toBe('Élan42')
-    expect(normalizeWord('Château')).toBe('Château')
-    expect(normalizeWord('Ça va ?')).toBe('Çava')
+describe('normalizeLetters', () => {
+  it('keeps letters, digits, case and French accents but drops the rest', () => {
+    expect(normalizeLetters('Été 42 !')).toBe('Été42')
+    expect(normalizeLetters('a-b_c')).toBe('abc')
+  })
+})
+
+describe('normalizeTextLines', () => {
+  it('splits on newlines, trims and collapses inner spaces', () => {
+    expect(normalizeTextLines('Bonjour  le\nmonde !')).toEqual(['Bonjour le', 'monde'])
   })
 
-  it('drops unsupported characters', () => {
-    expect(normalizeWord('a-b_c!d')).toBe('abcd')
-    expect(normalizeWord('  \n\t')).toBe('')
+  it('keeps blank lines as empty entries', () => {
+    expect(normalizeTextLines('a\n\nb')).toEqual(['a', '', 'b'])
   })
 
-  it('recomposes decomposed accents to a single code point', () => {
-    const decomposed = 'é'
-    expect(normalizeWord(decomposed)).toBe('é')
+  it('preserves accents and case', () => {
+    expect(normalizeTextLines('Château')).toEqual(['Château'])
   })
 })

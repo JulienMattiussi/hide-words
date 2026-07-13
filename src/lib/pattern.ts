@@ -1,4 +1,5 @@
 import { GLYPH_HEIGHT, GLYPH_WIDTH, getGlyph } from '@/lib/font'
+import { normalizeTextLines } from '@/lib/text'
 
 export function wordToPattern(word: string, spacing = 1): boolean[][] {
   const chars = [...word]
@@ -19,4 +20,31 @@ export function wordToPattern(word: string, spacing = 1): boolean[][] {
     pattern.push(row)
   }
   return pattern
+}
+
+export function textToPattern(text: string, letterSpacing = 1, lineSpacing = 1): boolean[][] {
+  const lines = normalizeTextLines(text)
+  const linePatterns = lines.map((line) => (line.length > 0 ? wordToPattern(line, letterSpacing) : []))
+  const width = linePatterns.reduce((max, pattern) => Math.max(max, pattern[0]?.length ?? 0), 0)
+  if (width === 0) return []
+  const result: boolean[][] = []
+  linePatterns.forEach((pattern, index) => {
+    if (index > 0) {
+      for (let s = 0; s < lineSpacing; s++) {
+        result.push(new Array<boolean>(width).fill(false))
+      }
+    }
+    const lineWidth = pattern[0]?.length ?? 0
+    const offset = Math.floor((width - lineWidth) / 2)
+    const height = pattern.length > 0 ? pattern.length : GLYPH_HEIGHT
+    for (let y = 0; y < height; y++) {
+      const row = new Array<boolean>(width).fill(false)
+      const sourceRow = pattern[y] ?? []
+      for (let x = 0; x < sourceRow.length; x++) {
+        row[offset + x] = sourceRow[x] ?? false
+      }
+      result.push(row)
+    }
+  })
+  return result
 }
