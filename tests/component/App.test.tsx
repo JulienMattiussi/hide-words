@@ -5,34 +5,44 @@ import App from '@/App'
 describe('App', () => {
   it('renders the project title', () => {
     render(<App />)
-    expect(screen.getByRole('heading', { name: 'hidden-word' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Hidden Word' })).toBeInTheDocument()
   })
 
-  it('reveals both codes by default', () => {
+  it('reveals every code by default', () => {
     render(<App />)
-    expect(screen.getByRole('img', { name: /révélant les deux codes/i })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Grille révélant : JOUR, NUIT, SOIR' })).toBeInTheDocument()
   })
 
-  it('switches to revealing only the first code', async () => {
+  it('reveals a single code when the others are unchecked', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('radio', { name: 'Code 1' }))
-    expect(screen.getByRole('img', { name: /révélant le code 1 : JOUR/i })).toBeInTheDocument()
+    const show = screen.getAllByRole('checkbox', { name: 'Afficher' })
+    await user.click(show[1]!)
+    await user.click(show[2]!)
+    expect(screen.getByRole('img', { name: 'Grille révélant : JOUR' })).toBeInTheDocument()
   })
 
-  it('hides the codes when asked', async () => {
+  it('hides everything when all codes are unchecked', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('radio', { name: 'Caché' }))
+    for (const checkbox of screen.getAllByRole('checkbox', { name: 'Afficher' })) {
+      await user.click(checkbox)
+    }
     expect(screen.getByRole('img', { name: /codes cachés/i })).toBeInTheDocument()
   })
 
-  it('warns when the key combination does not share exactly two letters', async () => {
+  it('shrinks the number of codes with the segmented control', async () => {
     const user = userEvent.setup()
     render(<App />)
-    const key2 = screen.getAllByLabelText(/Lettres du tracé/)[1]!
-    await user.clear(key2)
-    await user.type(key2, 'JOUR')
-    expect(screen.getByRole('alert')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '1' }))
+    expect(screen.getAllByRole('checkbox', { name: 'Afficher' })).toHaveLength(1)
+  })
+
+  it('fills the keys with the generate button', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: /Générer des mots clés/i }))
+    const keyInput = screen.getAllByLabelText(/Clé \(lettres du tracé\)/)[0] as HTMLInputElement
+    expect(keyInput.value).toMatch(/^[A-Z]+$/)
   })
 })

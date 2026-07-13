@@ -1,18 +1,20 @@
 # hidden-word
 
-Application **100% front-end** : on cache **deux codes** dans une même **grande
-grille de lettres**. Chaque code est un message rendu en pixel-art (bitmap) ;
-ses cases (le tracé) sont remplies par une **clé** de lettres. Le bruit
-(lettres aléatoires du fond) exclut toutes les lettres des clés, si bien que
-révéler un code revient à **noircir toutes les lettres de sa clé** : la forme
-apparaît. Interface en **français**. Partage la stack et les conventions de
-`mix-my-names`.
+Application **100% front-end** : on cache **jusqu'à trois codes** dans une même
+**grande grille de lettres**. Chaque code est un message rendu en pixel-art
+(bitmap) ; ses cases (le tracé) sont remplies par une **clé** de lettres. Le
+bruit (lettres aléatoires du fond) exclut toutes les lettres des clés, si bien
+que révéler un code revient à **noircir toutes les lettres de sa clé** : la
+forme apparaît. Interface en **français**. Partage la stack et les conventions
+de `mix-my-names`.
 
-Le point clé : les deux clés sont **disjointes sauf 2 lettres communes**. Les
-tracés sont positionnés en décalé pour se croiser le moins possible ; aux
-**intersections** (cases appartenant aux deux tracés) on place une des 2 lettres
-partagées. Ainsi noircir la clé 1 ne révèle que le code 1 (et inversement), les
-deux révélations restant indépendantes.
+Le point clé : chaque case appartient à un **sous-ensemble de codes** (une
+région du diagramme de Venn, représentée par un masque de bits). La lettre d'une
+case de région S doit être présente dans **toutes** les clés de S et dans
+**aucune** autre. Cela garantit que noircir la clé i révèle exactement le tracé
+du code i, indépendamment des autres. Les tracés sont positionnés en décalé pour
+se croiser le moins possible ; les clés sont **auto-générées** (une lettre
+exclusive par région occupée), ou **saisies manuellement** avec validation.
 
 ---
 

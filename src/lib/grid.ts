@@ -1,15 +1,14 @@
 import { normalizeLetters } from '@/lib/text'
 import { textToPattern } from '@/lib/pattern'
 import { createRng } from '@/lib/rng'
-import { analyzeKeys } from '@/lib/keys'
-import type { KeyAnalysis } from '@/lib/keys'
-import { bestOffset, placeMasks } from '@/lib/layout'
+import { autoKeys, regionLetters, validateKeys } from '@/lib/keys'
+import type { KeyStatus } from '@/lib/keys'
+import { autoOffsets, composeMasks } from '@/lib/layout'
 import type { Offset } from '@/lib/layout'
 
 interface Cell {
   char: string
-  primary: boolean
-  secondary: boolean
+  mask: number
 }
 
 export type Orientation = 'landscape' | 'portrait'
@@ -23,16 +22,18 @@ export interface Grid {
   cols: number
   rows: number
   cells: Cell[]
-  offset: Offset
-  keys: KeyAnalysis
-  secondActive: boolean
+  offsets: Offset[]
+  keys: string[]
+  suggested: string[]
+  keyStatus: KeyStatus
+  count: number
+  activeCount: number
 }
 
 export interface GridOptions {
   orientation: Orientation
-  first: CodeInput
-  second?: CodeInput
-  offset?: Offset
+  codes: CodeInput[]
+  offsets?: Offset[]
   letterSpacing?: number
   lineSpacing?: number
   seed?: number
@@ -57,14 +58,9 @@ export function noiseAlphabet(source: string): string {
   if (upperPresent) pool += UPPER + (accentPresent ? UPPER_ACCENT : '')
   if (lowerPresent) pool += LOWER + (accentPresent ? LOWER_ACCENT : '')
   if (digitPresent) pool += DIGITS
+  if (pool === '') pool = UPPER
   const filtered = [...pool].filter((char) => !used.has(char)).join('')
-  if (filtered.length > 0) return filtered
-  if (pool.length > 0) return pool
-  return UPPER
-}
-
-function distinct(input: string): string[] {
-  return [...new Set([...input])]
+  return filtered.length > 0 ? filtered : pool
 }
 
 function pick(letters: string[], index: number): string {
@@ -75,25 +71,41 @@ function pick(letters: string[], index: number): string {
 export function buildGrid(options: GridOptions): Grid {
   const letterSpacing = options.letterSpacing ?? 1
   const lineSpacing = options.lineSpacing ?? 1
+  const count = options.codes.length
 
-  const firstKeySource =
-    normalizeLetters(options.first.key ?? '') || normalizeLetters(options.first.text) || 'X'
-  const secondText = options.second?.text ?? ''
-  const secondKeySource =
-    normalizeLetters(options.second?.key ?? '') || normalizeLetters(secondText)
+  const patterns = options.codes.map((code) => textToPattern(code.text, letterSpacing, lineSpacing))
+  const activeCount = patterns.filter((pattern) => pattern.length > 0).length
+  const offsets = options.offsets ?? autoOffsets(patterns)
+  const placement = composeMasks(patterns, offsets)
 
-  const keys = analyzeKeys(firstKeySource, secondKeySource)
-  const secondActive = secondText.trim().length > 0 && keys.valid
+  const maskGrid: number[][] = []
+  const occupied = new Set<number>()
+  for (let y = 0; y < placement.rows; y++) {
+    const row: number[] = []
+    for (let x = 0; x < placement.cols; x++) {
+      let mask = 0
+      for (let k = 0; k < count; k++) {
+        if (placement.masks[k]?.[y]?.[x]) mask |= 1 << k
+      }
+      if (mask > 0) occupied.add(mask)
+      row.push(mask)
+    }
+    maskGrid.push(row)
+  }
 
-  const patternA = textToPattern(options.first.text, letterSpacing, lineSpacing)
-  const patternB = secondActive ? textToPattern(secondText, letterSpacing, lineSpacing) : []
-  const offset = options.offset ?? bestOffset(patternA, patternB)
-  const placement = placeMasks(patternA, patternB, offset.dx, offset.dy)
+  const regions = [...occupied]
+  const generated = autoKeys(count, regions, UPPER)
+  const manual = options.codes.map((code, index) =>
+    patterns[index]?.length ? normalizeLetters(code.key ?? '') || normalizeLetters(code.text) : '',
+  )
+  const keyStatus = validateKeys(manual, regions)
+  const keys = keyStatus.valid ? manual : generated
 
-  const firstLetters = secondActive ? keys.uniqueFirst : distinct(firstKeySource)
-  const secondLetters = keys.uniqueSecond
-  const sharedLetters = keys.shared
-  const noise = noiseAlphabet(firstKeySource + (secondActive ? secondKeySource : ''))
+  const regionMap = new Map<number, string[]>()
+  for (const mask of regions) {
+    regionMap.set(mask, regionLetters(keys, mask))
+  }
+  const noise = noiseAlphabet(keys.join(''))
 
   let cols = placement.cols + 2 * MARGIN
   let rows = placement.rows + 2 * MARGIN
@@ -108,34 +120,27 @@ export function buildGrid(options: GridOptions): Grid {
   const offsetX = Math.floor((cols - placement.cols) / 2)
   const offsetY = Math.floor((rows - placement.rows) / 2)
   const rng = createRng(options.seed ?? 1)
+  const counters = new Map<number, number>()
 
   const cells: Cell[] = []
-  let firstIndex = 0
-  let secondIndex = 0
-  let sharedIndex = 0
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const cy = y - offsetY
       const cx = x - offsetX
       const inContent = cy >= 0 && cy < placement.rows && cx >= 0 && cx < placement.cols
-      const primary = inContent && (placement.primary[cy]?.[cx] ?? false)
-      const secondary = inContent && (placement.secondary[cy]?.[cx] ?? false)
+      const mask = inContent ? (maskGrid[cy]?.[cx] ?? 0) : 0
       let char: string
-      if (primary && secondary) {
-        char = pick(sharedLetters, sharedIndex)
-        sharedIndex += 1
-      } else if (primary) {
-        char = pick(firstLetters, firstIndex)
-        firstIndex += 1
-      } else if (secondary) {
-        char = pick(secondLetters, secondIndex)
-        secondIndex += 1
+      if (mask > 0) {
+        const letters = regionMap.get(mask) ?? []
+        const index = counters.get(mask) ?? 0
+        char = pick(letters, index)
+        counters.set(mask, index + 1)
       } else {
         char = noise[Math.floor(rng() * noise.length)] ?? 'X'
       }
-      cells.push({ char, primary, secondary })
+      cells.push({ char, mask })
     }
   }
 
-  return { cols, rows, cells, offset, keys, secondActive }
+  return { cols, rows, cells, offsets, keys, suggested: generated, keyStatus, count, activeCount }
 }

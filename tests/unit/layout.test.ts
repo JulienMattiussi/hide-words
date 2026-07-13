@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bestOffset, overlapAt, placeMasks } from '@/lib/layout'
+import { autoOffsets, composeMasks, overlapAt } from '@/lib/layout'
 import { textToPattern } from '@/lib/pattern'
 
 function countOn(mask: boolean[][]): number {
@@ -19,34 +19,35 @@ describe('overlapAt', () => {
   })
 })
 
-describe('placeMasks', () => {
-  it('paints both patterns inside a shared canvas', () => {
-    const a = textToPattern('HI')
-    const b = textToPattern('YO')
-    const placement = placeMasks(a, b, 2, 1)
-    expect(placement.primary).toHaveLength(placement.rows)
-    expect(placement.secondary).toHaveLength(placement.rows)
-    expect(countOn(placement.primary)).toBe(countOn(a))
-    expect(countOn(placement.secondary)).toBe(countOn(b))
-  })
-
-  it('handles a missing second pattern', () => {
-    const a = textToPattern('HI')
-    const placement = placeMasks(a, [], 0, 0)
-    expect(countOn(placement.secondary)).toBe(0)
-    expect(countOn(placement.primary)).toBe(countOn(a))
+describe('autoOffsets', () => {
+  it('returns one offset per pattern, the first at the origin', () => {
+    const offsets = autoOffsets([textToPattern('HELLO'), textToPattern('WORLD')])
+    expect(offsets).toHaveLength(2)
+    expect(offsets[0]).toEqual({ dx: 0, dy: 0 })
   })
 })
 
-describe('bestOffset', () => {
-  it('minimises overlap relative to the centred position', () => {
-    const a = textToPattern('HELLO')
-    const b = textToPattern('WORLD')
-    const offset = bestOffset(a, b)
-    const centerX = Math.round(((a[0]?.length ?? 0) - (b[0]?.length ?? 0)) / 2)
-    const centerY = Math.round((a.length - b.length) / 2)
-    expect(overlapAt(a, b, offset.dx, offset.dy)).toBeLessThanOrEqual(
-      overlapAt(a, b, centerX, centerY),
-    )
+describe('composeMasks', () => {
+  it('paints every pattern into a shared canvas', () => {
+    const a = textToPattern('HI')
+    const b = textToPattern('YO')
+    const { cols, rows, masks } = composeMasks([a, b], [
+      { dx: 0, dy: 0 },
+      { dx: 2, dy: 1 },
+    ])
+    expect(masks).toHaveLength(2)
+    expect(masks[0]).toHaveLength(rows)
+    expect(masks[0]?.[0]).toHaveLength(cols)
+    expect(countOn(masks[0] ?? [])).toBe(countOn(a))
+    expect(countOn(masks[1] ?? [])).toBe(countOn(b))
+  })
+
+  it('ignores empty patterns', () => {
+    const a = textToPattern('HI')
+    const { masks } = composeMasks([a, []], [
+      { dx: 0, dy: 0 },
+      { dx: 0, dy: 0 },
+    ])
+    expect(countOn(masks[1] ?? [])).toBe(0)
   })
 })

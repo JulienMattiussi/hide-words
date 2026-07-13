@@ -1,10 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { flushSync } from 'react-dom'
 import { buildGrid } from '@/lib/grid'
 import type { Orientation } from '@/lib/grid'
+import type { Offset } from '@/lib/layout'
+import { autoOffsets } from '@/lib/layout'
+import { textToPattern } from '@/lib/pattern'
 import { normalizeLetters, normalizeTextLines } from '@/lib/text'
 import { GridView } from '@/GridView'
-import type { RevealMode } from '@/GridView'
+import { Segmented } from '@/Segmented'
 
 function toInt(value: number): number {
   return Number.isNaN(value) ? 0 : Math.round(value)
@@ -14,221 +18,267 @@ function joinLines(text: string): string {
   return normalizeTextLines(text).join(' ').trim()
 }
 
+function setAt<T>(list: T[], index: number, value: T): T[] {
+  return list.map((item, i) => (i === index ? value : item))
+}
+
 const inputClass = 'rounded border border-slate-300 bg-white px-2 py-1'
+const PANEL = ['border-sky-200 bg-sky-50', 'border-rose-200 bg-rose-50', 'border-amber-200 bg-amber-50']
+const LEGEND = ['text-sky-700', 'text-rose-700', 'text-amber-700']
+
+function AppIcon() {
+  const slate = '#334155'
+  const cells = [
+    { x: 6, y: 6, fill: slate },
+    { x: 17, y: 6, fill: slate },
+    { x: 28, y: 6, fill: '#0ea5e9' },
+    { x: 6, y: 17, fill: slate },
+    { x: 17, y: 17, fill: '#f43f5e' },
+    { x: 28, y: 17, fill: slate },
+    { x: 6, y: 28, fill: '#f59e0b' },
+    { x: 17, y: 28, fill: slate },
+    { x: 28, y: 28, fill: slate },
+  ]
+  return (
+    <svg viewBox="0 0 42 42" width="42" height="42" aria-hidden="true" className="shrink-0">
+      <rect width="42" height="42" rx="10" fill="#0f172a" />
+      {cells.map((cell) => (
+        <rect key={`${cell.x}-${cell.y}`} x={cell.x} y={cell.y} width="8" height="8" rx="2" fill={cell.fill} />
+      ))}
+    </svg>
+  )
+}
 
 export default function App() {
   const [orientation, setOrientation] = useState<Orientation>('landscape')
-  const [text1, setText1] = useState('JOUR')
-  const [key1, setKey1] = useState('JOURNE')
-  const [text2, setText2] = useState('NUIT')
-  const [key2, setKey2] = useState('NEBCT')
-  const [mode, setMode] = useState<RevealMode>('both')
-  const [printMode, setPrintMode] = useState<RevealMode | null>(null)
-  const [manualOffset, setManualOffset] = useState<{ dx: number; dy: number } | null>(null)
+  const [codeCount, setCodeCount] = useState(3)
+  const [texts, setTexts] = useState<string[]>(['JOUR', 'NUIT', 'SOIR'])
+  const [manualKeys, setManualKeys] = useState<string[]>(['bêtement', 'trop fort', 'les clefs'])
+  const [revealed, setRevealed] = useState(0b111)
+  const [printReveal, setPrintReveal] = useState<number | null>(null)
+  const [offsets, setOffsets] = useState<Offset[]>([
+    { dx: 0, dy: 0 },
+    { dx: -6, dy: 1 },
+    { dx: -5, dy: -1 },
+  ])
 
-  const grid = useMemo(
-    () =>
-      buildGrid({
-        orientation,
-        first: { text: text1, key: key1 },
-        second: { text: text2, key: key2 },
-        offset: manualOffset ?? undefined,
-      }),
-    [orientation, text1, key1, text2, key2, manualOffset],
-  )
+  const grid = useMemo(() => {
+    const codes = texts.slice(0, codeCount).map((text, index) => ({ text, key: manualKeys[index] }))
+    return buildGrid({ orientation, codes, offsets })
+  }, [orientation, codeCount, texts, manualKeys, offsets])
 
-  const label1 = joinLines(text1)
-  const label2 = joinLines(text2)
-  const shownMode = printMode ?? mode
-  const hasSecondText = text2.trim().length > 0
-  const showError = hasSecondText && !grid.keys.valid
+  const labels = texts.slice(0, codeCount).map(joinLines)
+  const shownReveal = printReveal ?? revealed
+  const activeIndexes = Array.from({ length: codeCount }, (_, index) => index)
 
-  function printGrid(target: RevealMode) {
-    flushSync(() => setPrintMode(target))
-    if (typeof window.print === 'function') {
-      window.print()
+  const printScale = useMemo(() => {
+    const pxPerMm = 96 / 25.4
+    const cell = 1.4 * 16 + 1
+    const gridWidth = grid.cols * cell + 2
+    const gridHeight = grid.rows * cell + 2
+    const shortSide = 210 * pxPerMm
+    const longSide = 279 * pxPerMm
+    const padding = 2 * 6 * pxPerMm
+    const availableWidth = (orientation === 'landscape' ? longSide : shortSide) - padding
+    const availableHeight = (orientation === 'landscape' ? shortSide : longSide) - padding
+    return 0.97 * Math.min(availableWidth / gridWidth, availableHeight / gridHeight)
+  }, [grid.cols, grid.rows, orientation])
+
+  useEffect(() => {
+    const id = 'hw-page-style'
+    let style = document.getElementById(id)
+    if (!style) {
+      style = document.createElement('style')
+      style.id = id
+      document.head.appendChild(style)
     }
-    flushSync(() => setPrintMode(null))
+    style.textContent = `@media print { @page { size: ${orientation}; margin: 0; } }`
+  }, [orientation])
+
+  function generateKeys() {
+    setManualKeys((previous) => previous.map((key, index) => (index < codeCount ? (grid.suggested[index] ?? '') : key)))
   }
 
-  function toggleManualOffset(enabled: boolean) {
-    setManualOffset(enabled ? grid.offset : null)
+  function generatePlacement() {
+    const patterns = texts.slice(0, codeCount).map((text) => textToPattern(text))
+    const auto = autoOffsets(patterns)
+    setOffsets((previous) => previous.map((offset, index) => (index < codeCount ? (auto[index] ?? offset) : offset)))
+  }
+
+  function setOffsetValue(index: number, axis: 'dx' | 'dy', value: number) {
+    setOffsets((previous) => previous.map((offset, i) => (i === index ? { ...offset, [axis]: value } : offset)))
+  }
+
+  function printGrid(bits: number) {
+    flushSync(() => setPrintReveal(bits))
+    if (typeof window.print === 'function') window.print()
+    flushSync(() => setPrintReveal(null))
   }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
-      <div className="mx-auto flex max-w-6xl flex-col gap-8 p-6 lg:flex-row">
-        <aside className="w-full shrink-0 space-y-6 lg:w-96 print:hidden">
-          <header>
-            <h1 className="text-2xl font-bold tracking-tight">hidden-word</h1>
-            <p className="text-sm text-slate-500">Cache deux codes dans une même grille de lettres.</p>
-          </header>
-
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-semibold text-slate-700">Orientation</legend>
-            <div className="flex gap-4 text-sm">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="orientation"
-                  checked={orientation === 'landscape'}
-                  onChange={() => setOrientation('landscape')}
-                />
-                Paysage
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="orientation"
-                  checked={orientation === 'portrait'}
-                  onChange={() => setOrientation('portrait')}
-                />
-                Portrait
-              </label>
-            </div>
-          </fieldset>
-
-          <fieldset className="space-y-3 rounded border border-sky-200 bg-sky-50 p-3">
-            <legend className="px-1 text-sm font-semibold text-sky-700">Code 1</legend>
-            <label className="flex flex-col gap-1 text-sm">
-              Message
-              <textarea
-                value={text1}
-                rows={2}
-                onChange={(event) => setText1(event.target.value)}
-                className={`${inputClass} resize-y font-mono`}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              Lettres du tracé (clé)
-              <input
-                type="text"
-                value={key1}
-                placeholder={normalizeLetters(text1) || 'clé'}
-                onChange={(event) => setKey1(event.target.value)}
-                className={inputClass}
-              />
-            </label>
-          </fieldset>
-
-          <fieldset className="space-y-3 rounded border border-rose-200 bg-rose-50 p-3">
-            <legend className="px-1 text-sm font-semibold text-rose-700">Code 2</legend>
-            <label className="flex flex-col gap-1 text-sm">
-              Message
-              <textarea
-                value={text2}
-                rows={2}
-                onChange={(event) => setText2(event.target.value)}
-                className={`${inputClass} resize-y font-mono`}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              Lettres du tracé (clé)
-              <input
-                type="text"
-                value={key2}
-                placeholder={normalizeLetters(text2) || 'clé'}
-                onChange={(event) => setKey2(event.target.value)}
-                className={inputClass}
-              />
-            </label>
-          </fieldset>
-
-          {showError ? (
-            <p role="alert" className="rounded bg-red-100 px-3 py-2 text-sm text-red-700">
-              {grid.keys.reason}
-            </p>
-          ) : grid.secondActive ? (
-            <p className="text-sm text-slate-600">
-              Lettres partagées (intersections) : <strong>{grid.keys.shared.join(', ')}</strong>
-            </p>
-          ) : null}
-
-          {grid.secondActive ? (
-            <fieldset className="space-y-2">
-              <legend className="text-sm font-semibold text-slate-700">Décalage des tracés</legend>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={manualOffset !== null}
-                  onChange={(event) => toggleManualOffset(event.target.checked)}
-                />
-                Ajuster manuellement (sinon automatique)
-              </label>
-              <div className="flex gap-3">
-                <label className="flex flex-1 flex-col gap-1 text-sm">
-                  dx
-                  <input
-                    type="number"
-                    value={grid.offset.dx}
-                    disabled={manualOffset === null}
-                    onChange={(event) => setManualOffset({ dx: toInt(event.target.valueAsNumber), dy: grid.offset.dy })}
-                    className={`${inputClass} disabled:bg-slate-100 disabled:text-slate-400`}
-                  />
-                </label>
-                <label className="flex flex-1 flex-col gap-1 text-sm">
-                  dy
-                  <input
-                    type="number"
-                    value={grid.offset.dy}
-                    disabled={manualOffset === null}
-                    onChange={(event) => setManualOffset({ dx: grid.offset.dx, dy: toInt(event.target.valueAsNumber) })}
-                    className={`${inputClass} disabled:bg-slate-100 disabled:text-slate-400`}
-                  />
-                </label>
-              </div>
-            </fieldset>
-          ) : null}
-
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-semibold text-slate-700">Affichage</legend>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <label className="flex items-center gap-2">
-                <input type="radio" name="mode" checked={mode === 'hidden'} onChange={() => setMode('hidden')} />
-                Caché
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="radio" name="mode" checked={mode === 'both'} onChange={() => setMode('both')} />
-                Les deux
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="radio" name="mode" checked={mode === 'first'} onChange={() => setMode('first')} />
-                Code 1
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="radio" name="mode" checked={mode === 'second'} onChange={() => setMode('second')} />
-                Code 2
-              </label>
-            </div>
-          </fieldset>
-
-          <div className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => printGrid('hidden')}
-              className="rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
-            >
-              Imprimer la grille cachée
-            </button>
-            <button
-              type="button"
-              onClick={() => printGrid('first')}
-              className="rounded bg-sky-700 px-3 py-2 text-sm font-medium text-white hover:bg-sky-600"
-            >
-              Imprimer le code 1
-            </button>
-            <button
-              type="button"
-              onClick={() => printGrid('second')}
-              className="rounded bg-rose-700 px-3 py-2 text-sm font-medium text-white hover:bg-rose-600"
-            >
-              Imprimer le code 2
-            </button>
+      <div className="mx-auto max-w-6xl space-y-6 p-6">
+        <header className="flex items-center gap-3 print:hidden">
+          <AppIcon />
+          <div>
+            <h1 className="bg-linear-to-r from-sky-600 via-violet-600 to-rose-600 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">
+              Hidden Word
+            </h1>
+            <p className="text-sm text-slate-500">Cache jusqu'à trois codes dans une grille de lettres.</p>
           </div>
-        </aside>
+        </header>
 
-        <main className="flex-1">
-          <GridView grid={grid} mode={shownMode} firstLabel={label1} secondLabel={label2} />
+        <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm print:hidden">
+          <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
+            <Segmented
+              legend="Codes"
+              value={String(codeCount)}
+              options={[
+                { value: '1', label: '1' },
+                { value: '2', label: '2' },
+                { value: '3', label: '3' },
+              ]}
+              onChange={(value) => {
+                const next = Number(value)
+                setCodeCount(next)
+                setRevealed((1 << next) - 1)
+              }}
+            />
+            <Segmented
+              legend="Orientation"
+              value={orientation}
+              options={[
+                { value: 'landscape', label: 'Paysage' },
+                { value: 'portrait', label: 'Portrait' },
+              ]}
+              onChange={(value) => setOrientation(value as Orientation)}
+            />
+            <div className="space-y-1">
+              <span className="block text-sm font-semibold text-slate-700">Clés</span>
+              <button
+                type="button"
+                onClick={generateKeys}
+                className="rounded bg-violet-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-600"
+              >
+                Générer des mots clés
+              </button>
+              {grid.keyStatus.valid ? (
+                <p className="text-xs text-emerald-700">Combinaison valide.</p>
+              ) : (
+                <p role="alert" className="text-xs text-red-700">
+                  {grid.keyStatus.reason}
+                </p>
+              )}
+            </div>
+            {codeCount > 1 ? (
+              <div className="space-y-1">
+                <span className="block text-sm font-semibold text-slate-700">Placement</span>
+                <button
+                  type="button"
+                  onClick={generatePlacement}
+                  className="rounded bg-slate-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-600"
+                >
+                  Placement automatique
+                </button>
+              </div>
+            ) : null}
+            <div className="ml-auto space-y-1">
+              <span className="block text-sm font-semibold text-slate-700">Impression</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => printGrid(0)}
+                  className="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+                >
+                  Grille cachée
+                </button>
+                <button
+                  type="button"
+                  onClick={() => printGrid((1 << codeCount) - 1)}
+                  className="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+                >
+                  Solutions
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            {activeIndexes.map((index) => {
+              const offset = offsets[index] ?? { dx: 0, dy: 0 }
+              return (
+                <fieldset key={index} className={`space-y-2 rounded border p-3 ${PANEL[index] ?? ''}`}>
+                  <legend className={`px-1 text-sm font-semibold ${LEGEND[index] ?? ''}`}>Code {index + 1}</legend>
+                  <label className="flex flex-col gap-1 text-sm">
+                    Message
+                    <textarea
+                      value={texts[index] ?? ''}
+                      rows={2}
+                      onChange={(event) => setTexts(setAt(texts, index, event.target.value))}
+                      className={`${inputClass} resize-y font-mono`}
+                    />
+                  </label>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <label className="flex flex-col gap-1 text-sm">
+                      Clé
+                      <input
+                        type="text"
+                        aria-label="Clé (lettres du tracé)"
+                        value={manualKeys[index] ?? ''}
+                        placeholder={normalizeLetters(texts[index] ?? '') || 'clé'}
+                        onChange={(event) => setManualKeys(setAt(manualKeys, index, event.target.value))}
+                        className={`${inputClass} w-28`}
+                      />
+                    </label>
+                    {index > 0 ? (
+                      <div className="ml-auto flex gap-2">
+                        <label className="flex w-14 flex-col gap-1 text-sm">
+                          dx
+                          <input
+                            type="number"
+                            value={offset.dx}
+                            onChange={(event) => setOffsetValue(index, 'dx', toInt(event.target.valueAsNumber))}
+                            className={`${inputClass} w-full`}
+                          />
+                        </label>
+                        <label className="flex w-14 flex-col gap-1 text-sm">
+                          dy
+                          <input
+                            type="number"
+                            value={offset.dy}
+                            onChange={(event) => setOffsetValue(index, 'dy', toInt(event.target.valueAsNumber))}
+                            className={`${inputClass} w-full`}
+                          />
+                        </label>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={(revealed & (1 << index)) !== 0}
+                        onChange={() => setRevealed(revealed ^ (1 << index))}
+                      />
+                      Afficher
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => printGrid(1 << index)}
+                      className="rounded bg-slate-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-500"
+                    >
+                      Imprimer
+                    </button>
+                  </div>
+                </fieldset>
+              )
+            })}
+          </div>
+
+        </section>
+
+        <main className="hw-print-area" style={{ ['--hw-print-scale']: String(printScale) } as CSSProperties}>
+          <GridView grid={grid} revealed={shownReveal} labels={labels} />
         </main>
       </div>
     </div>

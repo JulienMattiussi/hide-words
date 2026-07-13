@@ -1,38 +1,88 @@
 import { normalizeLetters } from '@/lib/text'
 
-export interface KeyAnalysis {
-  uniqueFirst: string[]
-  uniqueSecond: string[]
-  shared: string[]
+export interface KeyStatus {
   valid: boolean
   reason: string
 }
 
-function distinct(input: string): string[] {
-  return [...new Set([...input])]
+function bitsOf(mask: number, count: number): number[] {
+  const bits: number[] = []
+  for (let i = 0; i < count; i++) {
+    if (mask & (1 << i)) bits.push(i)
+  }
+  return bits
 }
 
-export function analyzeKeys(firstKey: string, secondKey: string): KeyAnalysis {
-  const a = distinct(normalizeLetters(firstKey))
-  const b = distinct(normalizeLetters(secondKey))
-  const inB = new Set(b)
-  const inA = new Set(a)
-  const shared = a.filter((char) => inB.has(char))
-  const uniqueFirst = a.filter((char) => !inB.has(char))
-  const uniqueSecond = b.filter((char) => !inA.has(char))
+function popcount(mask: number): number {
+  let count = 0
+  let value = mask
+  while (value) {
+    value &= value - 1
+    count += 1
+  }
+  return count
+}
 
-  let valid = true
-  let reason = ''
-  if (shared.length !== 2) {
-    valid = false
-    reason = `Les deux clés doivent partager exactement 2 lettres (actuellement ${shared.length}).`
-  } else if (uniqueFirst.length < 1) {
-    valid = false
-    reason = 'La clé du code 1 doit garder au moins une lettre qui lui est propre.'
-  } else if (uniqueSecond.length < 1) {
-    valid = false
-    reason = 'La clé du code 2 doit garder au moins une lettre qui lui est propre.'
+function describe(mask: number, count: number): string {
+  return bitsOf(mask, count)
+    .map((index) => `code ${index + 1}`)
+    .join(' & ')
+}
+
+export function regionLetters(keys: string[], mask: number): string[] {
+  const count = keys.length
+  const sets = keys.map((key) => new Set([...key]))
+  const inside = bitsOf(mask, count)
+  if (inside.length === 0) return []
+  const firstSet = sets[inside[0] ?? 0] ?? new Set<string>()
+  const result: string[] = []
+  for (const char of firstSet) {
+    const inAllInside = inside.every((index) => sets[index]?.has(char))
+    const inNoneOutside = sets.every((set, index) => (mask & (1 << index) ? true : !set.has(char)))
+    if (inAllInside && inNoneOutside) result.push(char)
+  }
+  return result
+}
+
+export function validateKeys(keys: string[], regions: number[]): KeyStatus {
+  const count = keys.length
+  for (const mask of regions) {
+    if (regionLetters(keys, mask).length === 0) {
+      return {
+        valid: false,
+        reason: `Aucune lettre propre pour ${describe(mask, count)}.`,
+      }
+    }
+  }
+  return { valid: true, reason: '' }
+}
+
+const MAX_KEY_LENGTH = 4
+
+export function autoKeys(count: number, regions: number[], pool: string): string[] {
+  const letters = [...normalizeLetters(pool)]
+  const keys: string[] = Array.from({ length: count }, () => '')
+  const ordered = [...regions].sort((a, b) => popcount(a) - popcount(b) || a - b)
+  let cursor = 0
+
+  const assign = (mask: number, letter: string) => {
+    for (let i = 0; i < count; i++) {
+      if (mask & (1 << i)) keys[i] += letter
+    }
   }
 
-  return { uniqueFirst, uniqueSecond, shared, valid, reason }
+  for (const mask of ordered) {
+    if (cursor >= letters.length - 1) break
+    assign(mask, letters[cursor] ?? 'X')
+    cursor += 1
+  }
+  for (const mask of ordered) {
+    if (popcount(mask) !== 1) continue
+    const index = bitsOf(mask, count)[0] ?? 0
+    while (cursor < letters.length - 1 && (keys[index] ?? '').length < MAX_KEY_LENGTH) {
+      assign(mask, letters[cursor] ?? 'X')
+      cursor += 1
+    }
+  }
+  return keys
 }

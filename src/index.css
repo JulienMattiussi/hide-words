@@ -7,3 +7,27 @@
     cursor: pointer;
   }
 }
+
+@media print {
+  body {
+    background: #fff;
+  }
+  .hw-print-area {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6mm;
+  }
+  .hw-scroll {
+    width: auto !important;
+    overflow: visible !important;
+  }
+  .hw-grid {
+    transform: scale(var(--hw-print-scale, 1));
+    transform-origin: center;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
