@@ -40,11 +40,12 @@ src/
 │   ├── text.ts               # normalizeLetters / normalizeTextLines
 │   ├── font.ts               # Fonte bitmap 5x9 (A-Z, a-z, 0-9, accents français)
 │   ├── pattern.ts            # wordToPattern (une ligne) + textToPattern (multiligne)
-│   ├── keys.ts               # analyzeKeys : valide la combinaison des 2 clés
-│   ├── layout.ts             # bestOffset + placeMasks : décalage et composition
+│   ├── keys.ts               # regionLetters / validateKeys / autoKeys : clés par région
+│   ├── layout.ts             # autoOffsets + composeMasks : décalages et composition
 │   ├── rng.ts                # createRng : générateur pseudo-aléatoire à seed
-│   └── grid.ts               # buildGrid : compose les 2 codes + remplit le fond
-├── GridView.tsx              # Rendu de la grille (2 couleurs en mode révélé)
+│   └── grid.ts               # buildGrid : compose les codes + remplit le fond
+├── GridView.tsx              # Rendu de la grille (une couleur par code en mode révélé)
+├── Segmented.tsx             # Sélecteur segmenté (groupe de boutons aria-pressed)
 ├── App.tsx                   # UI (panneau d'options)
 ├── main.tsx                  # Point d'entrée
 ├── index.css                 # Import Tailwind + reset minimal
@@ -54,7 +55,7 @@ public/
 └── og.png                    # Image Open Graph (1200x630)
 tests/
 ├── setup.ts                  # Setup Testing Library (jest-dom)
-├── unit/                     # Vitest - logique pure (text, font, pattern, grid)
+├── unit/                     # Vitest - logique pure (text, font, pattern, keys, layout, grid)
 └── component/                # Vitest + Testing Library (App)
 ```
 
@@ -70,23 +71,28 @@ tests/
 - **Motif** (`src/lib/pattern.ts`) : `wordToPattern` concatène les glyphes d'une
   ligne ; `textToPattern` empile les lignes (texte multiligne, lignes centrées)
   et renvoie une matrice de booléens (les cases « allumées » = le tracé).
-- **Clés** (`src/lib/keys.ts`) : `analyzeKeys` normalise les deux clés, calcule
-  lettres propres / partagées, et valide (exactement 2 partagées, chaque clé
-  garde >= 1 lettre propre).
-- **Placement** (`src/lib/layout.ts`) : `bestOffset` cherche le décalage qui
-  minimise les intersections (fenêtre autour du centre, en gardant >= 1 croisement
-  si possible) ; `placeMasks` peint les deux motifs dans un même canevas et
-  renvoie les masques `primary` / `secondary`.
-- **Grille** (`src/lib/grid.ts`) : `buildGrid` compose les deux masques, applique
-  marge + orientation, puis remplit chaque case selon sa classe : intersection
-  -> lettre partagée, code 1 seul -> lettre propre au code 1, code 2 seul ->
-  propre au code 2, fond -> bruit dérivé (`noiseAlphabet`, exclut les lettres des
-  clés). Chaque case : `{ char, primary, secondary }`. Le second code est ignoré
-  si sa combinaison est invalide (`secondActive`).
-- **Rendu** (`src/GridView.tsx`, `src/App.tsx`) : panneau (orientation, 2 codes
-  message + clé, décalage auto/manuel, mode d'affichage, impressions) et grille.
-  En mode révélé, code 1 et code 2 ont chacun leur couleur, les intersections une
-  troisième.
+- **Clés** (`src/lib/keys.ts`) : une région est un masque de bits (bit i = code
+  i). `regionLetters` renvoie les lettres présentes dans toutes les clés de la
+  région et dans aucune autre ; `validateKeys` exige au moins une telle lettre
+  pour chaque région occupée ; `autoKeys` attribue une lettre exclusive par
+  région (régions simples d'abord), puis complète les clés propres jusqu'à 4
+  lettres.
+- **Placement** (`src/lib/layout.ts`) : `autoOffsets` place chaque code à tour de
+  rôle, en cherchant dans une fenêtre autour du centre le décalage qui minimise
+  le recouvrement avec les tracés déjà posés (en gardant >= 1 croisement si
+  possible) ; `composeMasks` peint tous les motifs dans un même canevas et
+  renvoie un masque par code.
+- **Grille** (`src/lib/grid.ts`) : `buildGrid` calcule le masque de région de
+  chaque case, valide les clés saisies (à défaut, le message sert de clé) et
+  bascule sur les clés auto-générées si la combinaison est invalide. Il applique
+  ensuite marge + orientation, puis remplit chaque case : région -> lettres de
+  `regionLetters` en rotation, fond -> bruit (`noiseAlphabet`, exclut les
+  lettres des clés). Chaque case : `{ char, mask }`.
+- **Rendu** (`src/GridView.tsx`, `src/App.tsx`) : panneau (nombre de codes 1 à
+  3, orientation, message + clé + décalage dx/dy par code, génération des clés,
+  placement automatique, affichage par code, impressions grille / solutions /
+  code seul) et grille. En mode révélé, chaque code a sa couleur (bleu, rouge,
+  ambre), les intersections une couleur commune (violet).
 
 ---
 
