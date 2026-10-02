@@ -1,4 +1,4 @@
-# hidden-word
+# hide-words
 
 Application **100% front-end** : on cache **jusqu'à trois codes** dans une même
 **grande grille de lettres**. Chaque code est un message rendu en pixel-art
@@ -50,7 +50,8 @@ src/
 ├── index.css                 # Import Tailwind + reset minimal
 └── vite-env.d.ts             # Types Vite
 public/
-└── favicon.svg               # Favicon
+├── favicon.svg               # Favicon
+└── og.png                    # Image Open Graph (1200x630)
 tests/
 ├── setup.ts                  # Setup Testing Library (jest-dom)
 ├── unit/                     # Vitest - logique pure (text, font, pattern, grid)

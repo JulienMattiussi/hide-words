@@ -5,7 +5,7 @@ import App from '@/App'
 describe('App', () => {
   it('renders the project title', () => {
     render(<App />)
-    expect(screen.getByRole('heading', { name: 'Hidden Word' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Hide Words' })).toBeInTheDocument()
   })
 
   it('reveals every code by default', () => {

@@ -16,5 +16,8 @@
     "allow": [
       "Bash(make check *)"
     ]
+  },
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "0"
   }
 }

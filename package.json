@@ -1,11 +1,11 @@
 {
-  "name": "hidden-word",
+  "name": "hide-words",
   "private": true,
   "version": "0.1.0",
   "author": "YavaDeus",
   "license": "MIT",
   "type": "module",
-  "description": "Application 100% front-end autour du mot caché.",
+  "description": "Cache jusqu'à trois codes en pixel-art dans une grille de lettres.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

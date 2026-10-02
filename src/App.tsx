@@ -122,7 +122,7 @@ export default function App() {
           <AppIcon />
           <div>
             <h1 className="bg-linear-to-r from-sky-600 via-violet-600 to-rose-600 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">
-              Hidden Word
+              Hide Words
             </h1>
             <p className="text-sm text-slate-500">Cache jusqu'à trois codes dans une grille de lettres.</p>
           </div>
