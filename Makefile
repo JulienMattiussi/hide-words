@@ -1,7 +1,7 @@
 default: help
 
 help: ## Display available commands
-	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+	@grep -Fh "##" $(MAKEFILE_LIST) | grep -Fv "grep -F" | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 install: ## Install all dependencies
 	npm install

@@ -17,24 +17,7 @@ function dimensions(pattern: boolean[][]): { width: number; height: number } {
   return { width, height }
 }
 
-export function overlapAt(a: boolean[][], b: boolean[][], dx: number, dy: number): number {
-  const { width: wa, height: ha } = dimensions(a)
-  let count = 0
-  for (let y = 0; y < b.length; y++) {
-    const row = b[y] ?? []
-    for (let x = 0; x < row.length; x++) {
-      if (!row[x]) continue
-      const ay = y + dy
-      const ax = x + dx
-      if (ay >= 0 && ay < ha && ax >= 0 && ax < wa && (a[ay]?.[ax] ?? false)) {
-        count += 1
-      }
-    }
-  }
-  return count
-}
-
-function key(x: number, y: number): string {
+function cellKey(x: number, y: number): string {
   return `${x},${y}`
 }
 
@@ -42,7 +25,7 @@ function addOccupied(occupied: Set<string>, pattern: boolean[][], offset: Offset
   for (let y = 0; y < pattern.length; y++) {
     const row = pattern[y] ?? []
     for (let x = 0; x < row.length; x++) {
-      if (row[x]) occupied.add(key(x + offset.dx, y + offset.dy))
+      if (row[x]) occupied.add(cellKey(x + offset.dx, y + offset.dy))
     }
   }
 }
@@ -52,7 +35,7 @@ function overlapWithOccupied(occupied: Set<string>, pattern: boolean[][], offset
   for (let y = 0; y < pattern.length; y++) {
     const row = pattern[y] ?? []
     for (let x = 0; x < row.length; x++) {
-      if (row[x] && occupied.has(key(x + offset.dx, y + offset.dy))) count += 1
+      if (row[x] && occupied.has(cellKey(x + offset.dx, y + offset.dy))) count += 1
     }
   }
   return count
@@ -111,7 +94,13 @@ function blank(cols: number, rows: number): boolean[][] {
   return grid
 }
 
-function paint(cols: number, rows: number, pattern: boolean[][], atX: number, atY: number): boolean[][] {
+function paint(
+  cols: number,
+  rows: number,
+  pattern: boolean[][],
+  atX: number,
+  atY: number,
+): boolean[][] {
   const grid = blank(cols, rows)
   for (let y = 0; y < pattern.length; y++) {
     const row = pattern[y] ?? []

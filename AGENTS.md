@@ -23,6 +23,7 @@ exclusive par région occupée), ou **saisies manuellement** avec validation.
 | Outil | Usage |
 |---|---|
 | React 19 + TypeScript | UI |
+| Node 22 ou 24 (LTS) | Vitest 5 ne supporte pas les versions impaires (25) |
 | Vite | Build / dev server (port **1515**) |
 | Tailwind CSS v4 | Styles (via `@tailwindcss/vite`, pas de config JS) |
 | Vitest + Testing Library | Tests unitaires et composants |
@@ -38,24 +39,27 @@ exclusive par région occupée), ou **saisies manuellement** avec validation.
 src/
 ├── lib/                      # Logique pure, zéro React (entièrement testée)
 │   ├── text.ts               # normalizeLetters / normalizeTextLines
+│   ├── bits.ts               # bitsOf / popcount : helpers de masques de bits
 │   ├── font.ts               # Fonte bitmap 5x9 (A-Z, a-z, 0-9, accents français)
 │   ├── pattern.ts            # wordToPattern (une ligne) + textToPattern (multiligne)
 │   ├── keys.ts               # regionLetters / validateKeys / autoKeys : clés par région
 │   ├── layout.ts             # autoOffsets + composeMasks : décalages et composition
 │   ├── rng.ts                # createRng : générateur pseudo-aléatoire à seed
-│   └── grid.ts               # buildGrid : compose les codes + remplit le fond
+│   ├── grid.ts               # buildGrid : compose les codes + remplit le fond
+│   └── print.ts              # printScale : mise à l'échelle de la grille pour une page
 ├── GridView.tsx              # Rendu de la grille (une couleur par code en mode révélé)
+├── AppIcon.tsx               # Logo SVG de l'en-tête
 ├── Segmented.tsx             # Sélecteur segmenté (groupe de boutons aria-pressed)
 ├── App.tsx                   # UI (panneau d'options)
 ├── main.tsx                  # Point d'entrée
-├── index.css                 # Import Tailwind + reset minimal
+├── index.css                 # Import Tailwind + styles d'impression (classes hw-*)
 └── vite-env.d.ts             # Types Vite
 public/
 ├── favicon.svg               # Favicon
 └── og.png                    # Image Open Graph (1200x630)
 tests/
 ├── setup.ts                  # Setup Testing Library (jest-dom)
-├── unit/                     # Vitest - logique pure (text, font, pattern, keys, layout, grid)
+├── unit/                     # Vitest - un fichier de test par module de src/lib/
 └── component/                # Vitest + Testing Library (App)
 ```
 
@@ -144,13 +148,18 @@ tests/
 | `make install` | Installe les dépendances |
 | `make start` | Serveur de dev (http://localhost:1515) |
 | `make build` | Build de production |
+| `make preview` | Build puis prévisualisation locale |
 | `make lint` | ESLint |
 | `make knip` | Détecte fichiers / exports / dépendances inutilisés |
 | `make format` | Formate avec Prettier |
+| `make format-check` | Vérifie le formatage sans modifier |
 | `make typecheck` | Vérifie les types |
 | `make test` | Tests unitaires et composants |
+| `make test-watch` | Tests en mode watch |
+| `make test-coverage` | Tests avec couverture (`src/lib/`) |
 | `make fix` | Format + lint |
 | `make check` | build + lint + typecheck + knip + tests |
+| `make clean` | Supprime dist, node_modules, coverage |
 
 ---
 

@@ -1,3 +1,4 @@
+import { bitsOf, popcount } from '@/lib/bits'
 import type { Grid } from '@/lib/grid'
 
 const BASE = 'bg-white text-slate-400'
@@ -8,30 +9,10 @@ const CODE_COLORS = [
   'bg-amber-500 font-bold text-white',
 ]
 
-function popcount(mask: number): number {
-  let count = 0
-  let value = mask
-  while (value) {
-    value &= value - 1
-    count += 1
-  }
-  return count
-}
-
-function firstBit(mask: number): number {
-  let index = 0
-  let value = mask
-  while (value && !(value & 1)) {
-    value >>= 1
-    index += 1
-  }
-  return index
-}
-
 function cellClass(mask: number, revealed: number): string {
   const shown = mask & revealed
   if (shown === 0) return BASE
-  if (popcount(shown) === 1) return CODE_COLORS[firstBit(shown)] ?? SHARED
+  if (popcount(shown) === 1) return CODE_COLORS[bitsOf(shown, CODE_COLORS.length)[0] ?? 0] ?? SHARED
   return SHARED
 }
 

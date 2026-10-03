@@ -12,7 +12,7 @@ describe('wordToPattern', () => {
   })
 
   it('concatenates glyphs with a blank spacing column', () => {
-    const pattern = wordToPattern('AB', 1)
+    const pattern = wordToPattern('AB')
     expect(pattern).toHaveLength(GLYPH_HEIGHT)
     const width = 2 * GLYPH_WIDTH + 1
     for (const row of pattern) {

@@ -10,7 +10,9 @@ describe('App', () => {
 
   it('reveals every code by default', () => {
     render(<App />)
-    expect(screen.getByRole('img', { name: 'Grille révélant : JOUR, NUIT, SOIR' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('img', { name: 'Grille révélant : JOUR, NUIT, SOIR' }),
+    ).toBeInTheDocument()
   })
 
   it('reveals a single code when the others are unchecked', async () => {
@@ -36,6 +38,17 @@ describe('App', () => {
     render(<App />)
     await user.click(screen.getByRole('button', { name: '1' }))
     expect(screen.getAllByRole('checkbox', { name: 'Afficher' })).toHaveLength(1)
+  })
+
+  it('flags a key combination leaving a region without its own letter', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const keyInputs = screen.getAllByLabelText(/Clé \(lettres du tracé\)/)
+    for (const input of keyInputs) {
+      await user.clear(input)
+      await user.type(input, 'AB')
+    }
+    expect(screen.getByRole('alert')).toHaveTextContent(/Aucune lettre propre/)
   })
 
   it('fills the keys with the generate button', async () => {

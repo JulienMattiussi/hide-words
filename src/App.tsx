@@ -6,7 +6,9 @@ import type { Orientation } from '@/lib/grid'
 import type { Offset } from '@/lib/layout'
 import { autoOffsets } from '@/lib/layout'
 import { textToPattern } from '@/lib/pattern'
+import { printScale } from '@/lib/print'
 import { normalizeLetters, normalizeTextLines } from '@/lib/text'
+import { AppIcon } from '@/AppIcon'
 import { GridView } from '@/GridView'
 import { Segmented } from '@/Segmented'
 
@@ -23,31 +25,12 @@ function setAt<T>(list: T[], index: number, value: T): T[] {
 }
 
 const inputClass = 'rounded border border-slate-300 bg-white px-2 py-1'
-const PANEL = ['border-sky-200 bg-sky-50', 'border-rose-200 bg-rose-50', 'border-amber-200 bg-amber-50']
+const PANEL = [
+  'border-sky-200 bg-sky-50',
+  'border-rose-200 bg-rose-50',
+  'border-amber-200 bg-amber-50',
+]
 const LEGEND = ['text-sky-700', 'text-rose-700', 'text-amber-700']
-
-function AppIcon() {
-  const slate = '#334155'
-  const cells = [
-    { x: 6, y: 6, fill: slate },
-    { x: 17, y: 6, fill: slate },
-    { x: 28, y: 6, fill: '#0ea5e9' },
-    { x: 6, y: 17, fill: slate },
-    { x: 17, y: 17, fill: '#f43f5e' },
-    { x: 28, y: 17, fill: slate },
-    { x: 6, y: 28, fill: '#f59e0b' },
-    { x: 17, y: 28, fill: slate },
-    { x: 28, y: 28, fill: slate },
-  ]
-  return (
-    <svg viewBox="0 0 42 42" width="42" height="42" aria-hidden="true" className="shrink-0">
-      <rect width="42" height="42" rx="10" fill="#0f172a" />
-      {cells.map((cell) => (
-        <rect key={`${cell.x}-${cell.y}`} x={cell.x} y={cell.y} width="8" height="8" rx="2" fill={cell.fill} />
-      ))}
-    </svg>
-  )
-}
 
 export default function App() {
   const [orientation, setOrientation] = useState<Orientation>('landscape')
@@ -71,18 +54,7 @@ export default function App() {
   const shownReveal = printReveal ?? revealed
   const activeIndexes = Array.from({ length: codeCount }, (_, index) => index)
 
-  const printScale = useMemo(() => {
-    const pxPerMm = 96 / 25.4
-    const cell = 1.4 * 16 + 1
-    const gridWidth = grid.cols * cell + 2
-    const gridHeight = grid.rows * cell + 2
-    const shortSide = 210 * pxPerMm
-    const longSide = 279 * pxPerMm
-    const padding = 2 * 6 * pxPerMm
-    const availableWidth = (orientation === 'landscape' ? longSide : shortSide) - padding
-    const availableHeight = (orientation === 'landscape' ? shortSide : longSide) - padding
-    return 0.97 * Math.min(availableWidth / gridWidth, availableHeight / gridHeight)
-  }, [grid.cols, grid.rows, orientation])
+  const scale = printScale(grid.cols, grid.rows, orientation)
 
   useEffect(() => {
     const id = 'hw-page-style'
@@ -96,17 +68,23 @@ export default function App() {
   }, [orientation])
 
   function generateKeys() {
-    setManualKeys((previous) => previous.map((key, index) => (index < codeCount ? (grid.suggested[index] ?? '') : key)))
+    setManualKeys((previous) =>
+      previous.map((key, index) => (index < codeCount ? (grid.suggested[index] ?? '') : key)),
+    )
   }
 
   function generatePlacement() {
     const patterns = texts.slice(0, codeCount).map((text) => textToPattern(text))
     const auto = autoOffsets(patterns)
-    setOffsets((previous) => previous.map((offset, index) => (index < codeCount ? (auto[index] ?? offset) : offset)))
+    setOffsets((previous) =>
+      previous.map((offset, index) => (index < codeCount ? (auto[index] ?? offset) : offset)),
+    )
   }
 
   function setOffsetValue(index: number, axis: 'dx' | 'dy', value: number) {
-    setOffsets((previous) => previous.map((offset, i) => (i === index ? { ...offset, [axis]: value } : offset)))
+    setOffsets((previous) =>
+      previous.map((offset, i) => (i === index ? { ...offset, [axis]: value } : offset)),
+    )
   }
 
   function printGrid(bits: number) {
@@ -124,7 +102,9 @@ export default function App() {
             <h1 className="bg-linear-to-r from-sky-600 via-violet-600 to-rose-600 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">
               Hide Words
             </h1>
-            <p className="text-sm text-slate-500">Cache jusqu'à trois codes dans une grille de lettres.</p>
+            <p className="text-sm text-slate-500">
+              Cache jusqu'à trois codes dans une grille de lettres.
+            </p>
           </div>
         </header>
 
@@ -207,8 +187,13 @@ export default function App() {
             {activeIndexes.map((index) => {
               const offset = offsets[index] ?? { dx: 0, dy: 0 }
               return (
-                <fieldset key={index} className={`space-y-2 rounded border p-3 ${PANEL[index] ?? ''}`}>
-                  <legend className={`px-1 text-sm font-semibold ${LEGEND[index] ?? ''}`}>Code {index + 1}</legend>
+                <fieldset
+                  key={index}
+                  className={`space-y-2 rounded border p-3 ${PANEL[index] ?? ''}`}
+                >
+                  <legend className={`px-1 text-sm font-semibold ${LEGEND[index] ?? ''}`}>
+                    Code {index + 1}
+                  </legend>
                   <label className="flex flex-col gap-1 text-sm">
                     Message
                     <textarea
@@ -226,7 +211,9 @@ export default function App() {
                         aria-label="Clé (lettres du tracé)"
                         value={manualKeys[index] ?? ''}
                         placeholder={normalizeLetters(texts[index] ?? '') || 'clé'}
-                        onChange={(event) => setManualKeys(setAt(manualKeys, index, event.target.value))}
+                        onChange={(event) =>
+                          setManualKeys(setAt(manualKeys, index, event.target.value))
+                        }
                         className={`${inputClass} w-28`}
                       />
                     </label>
@@ -237,7 +224,9 @@ export default function App() {
                           <input
                             type="number"
                             value={offset.dx}
-                            onChange={(event) => setOffsetValue(index, 'dx', toInt(event.target.valueAsNumber))}
+                            onChange={(event) =>
+                              setOffsetValue(index, 'dx', toInt(event.target.valueAsNumber))
+                            }
                             className={`${inputClass} w-full`}
                           />
                         </label>
@@ -246,7 +235,9 @@ export default function App() {
                           <input
                             type="number"
                             value={offset.dy}
-                            onChange={(event) => setOffsetValue(index, 'dy', toInt(event.target.valueAsNumber))}
+                            onChange={(event) =>
+                              setOffsetValue(index, 'dy', toInt(event.target.valueAsNumber))
+                            }
                             className={`${inputClass} w-full`}
                           />
                         </label>
@@ -274,10 +265,12 @@ export default function App() {
               )
             })}
           </div>
-
         </section>
 
-        <main className="hw-print-area" style={{ ['--hw-print-scale']: String(printScale) } as CSSProperties}>
+        <main
+          className="hw-print-area"
+          style={{ ['--hw-print-scale']: String(scale) } as CSSProperties}
+        >
           <GridView grid={grid} revealed={shownReveal} labels={labels} />
         </main>
       </div>

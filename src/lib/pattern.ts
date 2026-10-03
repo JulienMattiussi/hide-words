@@ -1,11 +1,14 @@
 import { GLYPH_HEIGHT, GLYPH_WIDTH, getGlyph } from '@/lib/font'
 import { normalizeTextLines } from '@/lib/text'
 
-export function wordToPattern(word: string, spacing = 1): boolean[][] {
+const LETTER_SPACING = 1
+const LINE_SPACING = 1
+
+export function wordToPattern(word: string): boolean[][] {
   const chars = [...word]
   if (chars.length === 0) return []
   const glyphs = chars.map((char) => getGlyph(char))
-  const width = chars.length * GLYPH_WIDTH + (chars.length - 1) * spacing
+  const width = chars.length * GLYPH_WIDTH + (chars.length - 1) * LETTER_SPACING
   const pattern: boolean[][] = []
   for (let y = 0; y < GLYPH_HEIGHT; y++) {
     const row: boolean[] = new Array<boolean>(width).fill(false)
@@ -15,22 +18,22 @@ export function wordToPattern(word: string, spacing = 1): boolean[][] {
       for (let gx = 0; gx < GLYPH_WIDTH; gx++) {
         row[x + gx] = glyphRow[gx] ?? false
       }
-      x += GLYPH_WIDTH + spacing
+      x += GLYPH_WIDTH + LETTER_SPACING
     }
     pattern.push(row)
   }
   return pattern
 }
 
-export function textToPattern(text: string, letterSpacing = 1, lineSpacing = 1): boolean[][] {
+export function textToPattern(text: string): boolean[][] {
   const lines = normalizeTextLines(text)
-  const linePatterns = lines.map((line) => (line.length > 0 ? wordToPattern(line, letterSpacing) : []))
+  const linePatterns = lines.map((line) => (line.length > 0 ? wordToPattern(line) : []))
   const width = linePatterns.reduce((max, pattern) => Math.max(max, pattern[0]?.length ?? 0), 0)
   if (width === 0) return []
   const result: boolean[][] = []
   linePatterns.forEach((pattern, index) => {
     if (index > 0) {
-      for (let s = 0; s < lineSpacing; s++) {
+      for (let s = 0; s < LINE_SPACING; s++) {
         result.push(new Array<boolean>(width).fill(false))
       }
     }

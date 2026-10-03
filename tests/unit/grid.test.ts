@@ -26,7 +26,6 @@ describe('buildGrid, single code', () => {
   it('marks the pattern cells and excludes the key from the noise', () => {
     const grid = buildGrid({ orientation: 'landscape', codes: [{ text: 'HELLO' }] })
     expect(grid.count).toBe(1)
-    expect(grid.activeCount).toBe(1)
     const onCount = grid.cells.filter((cell) => cell.mask !== 0).length
     expect(onCount).toBe(countOn(textToPattern('HELLO')))
     expectRevealsIndependent(grid)

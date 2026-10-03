@@ -22,20 +22,16 @@ export interface Grid {
   cols: number
   rows: number
   cells: Cell[]
-  offsets: Offset[]
   keys: string[]
   suggested: string[]
   keyStatus: KeyStatus
   count: number
-  activeCount: number
 }
 
 export interface GridOptions {
   orientation: Orientation
   codes: CodeInput[]
   offsets?: Offset[]
-  letterSpacing?: number
-  lineSpacing?: number
   seed?: number
 }
 
@@ -69,12 +65,9 @@ function pick(letters: string[], index: number): string {
 }
 
 export function buildGrid(options: GridOptions): Grid {
-  const letterSpacing = options.letterSpacing ?? 1
-  const lineSpacing = options.lineSpacing ?? 1
   const count = options.codes.length
 
-  const patterns = options.codes.map((code) => textToPattern(code.text, letterSpacing, lineSpacing))
-  const activeCount = patterns.filter((pattern) => pattern.length > 0).length
+  const patterns = options.codes.map((code) => textToPattern(code.text))
   const offsets = options.offsets ?? autoOffsets(patterns)
   const placement = composeMasks(patterns, offsets)
 
@@ -142,5 +135,5 @@ export function buildGrid(options: GridOptions): Grid {
     }
   }
 
-  return { cols, rows, cells, offsets, keys, suggested: generated, keyStatus, count, activeCount }
+  return { cols, rows, cells, keys, suggested: generated, keyStatus, count }
 }

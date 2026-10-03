@@ -1,3 +1,4 @@
+import { bitsOf, popcount } from '@/lib/bits'
 import { normalizeLetters } from '@/lib/text'
 
 export interface KeyStatus {
@@ -5,25 +6,7 @@ export interface KeyStatus {
   reason: string
 }
 
-function bitsOf(mask: number, count: number): number[] {
-  const bits: number[] = []
-  for (let i = 0; i < count; i++) {
-    if (mask & (1 << i)) bits.push(i)
-  }
-  return bits
-}
-
-function popcount(mask: number): number {
-  let count = 0
-  let value = mask
-  while (value) {
-    value &= value - 1
-    count += 1
-  }
-  return count
-}
-
-function describe(mask: number, count: number): string {
+function describeRegion(mask: number, count: number): string {
   return bitsOf(mask, count)
     .map((index) => `code ${index + 1}`)
     .join(' & ')
@@ -50,7 +33,7 @@ export function validateKeys(keys: string[], regions: number[]): KeyStatus {
     if (regionLetters(keys, mask).length === 0) {
       return {
         valid: false,
-        reason: `Aucune lettre propre pour ${describe(mask, count)}.`,
+        reason: `Aucune lettre propre pour ${describeRegion(mask, count)}.`,
       }
     }
   }
